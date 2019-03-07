@@ -14,7 +14,7 @@
       <div class="col-lg-6">
       </div>
       <div class="col-lg-12 credits">
-        Azure CCoE Team
+        Azure CCoENL Team
       </div>
       <div class="col-lg-6">
       </div>
