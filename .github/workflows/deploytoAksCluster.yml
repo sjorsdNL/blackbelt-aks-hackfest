@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: acr82706845.azurecr.io
+        username: ${{ secrets.acr_acr82706845_username }}
+        password: ${{ secrets.acr_acr82706845_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/app/api-service-broker" -f  "app/api-service-broker/Dockerfile" -t acr82706845.azurecr.io/akshandonlabsjorsd:${{ github.sha }} --label dockerfile-path=app/api-service-broker/Dockerfile
+        docker push acr82706845.azurecr.io/akshandonlabsjorsd:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_akshandonlabsjorsd_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep akshandonlabsjorsda63b | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace akshandonlabsjorsda63b`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: akshandonlabsjorsda63b
+        container-registry-url: acr82706845.azurecr.io
+        container-registry-username: ${{ secrets.acr_acr82706845_username }}
+        container-registry-password: ${{ secrets.acr_acr82706845_password }}
+        secret-name: akshandonlabdockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: akshandonlabsjorsda63b
+        manifests: |
+          manifests/deployment.yml
+          manifests/service.yml
+        images: |
+          acr82706845.azurecr.io/akshandonlabsjorsd:${{ github.sha }}
+        imagepullsecrets: |
+          akshandonlabdockerauth
